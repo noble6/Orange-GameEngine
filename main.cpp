@@ -1,16 +1,14 @@
+#include "engine/core/Engine.h"
 #include "game/Game.h"
-#include <iostream>
 
 int main() {
+    Engine engine;
     Game game;
-    game.initialize();
 
-    for (int i = 0; i < 100; ++i) {
-        game.update();
-        game.render();
+    if (!engine.initialize()) {
+        return 1;
     }
 
-    game.shutdown();
-    std::cout << "Prototype ran successfully.\n";
+    engine.run(game, 600);
     return 0;
 }

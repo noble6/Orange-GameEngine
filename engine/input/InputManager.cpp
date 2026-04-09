@@ -1,37 +1,21 @@
-#include "InputManager.h"
-#include <GLFW/glfw3.h>
+#include "engine/input/InputManager.h"
 
-InputManager::InputManager()
-    : window(nullptr), keys{} {}
-
-void InputManager::initialize() {
-    if (!glfwInit()) {
-        // Handle error
-        return;
-    }
-    window = glfwCreateWindow(640, 480, "Prototype Window", nullptr, nullptr);
-    if (!window) {
-        glfwTerminate();
-        // Handle error
-        return;
-    }
-    glfwMakeContextCurrent(window);
+void InputManager::initialize() noexcept {
+    keys_.fill(false);
 }
 
-void InputManager::update() {
-    for (int i = 0; i < keys.size(); ++i) {
-        keys[i] = glfwGetKey(window, i) == GLFW_PRESS;
-    }
+void InputManager::update() noexcept {
+    // Placeholder for platform input polling.
 }
 
-bool InputManager::isKeyPressed(int key) {
-    return keys[key];
+bool InputManager::isKeyPressed(Key key) const noexcept {
+    return keys_[static_cast<std::size_t>(key)];
 }
 
-void InputManager::shutdown() {
-    if (window) {
-        glfwDestroyWindow(window);
-        window = nullptr;
-    }
-    glfwTerminate();
+void InputManager::setKeyState(Key key, bool pressed) noexcept {
+    keys_[static_cast<std::size_t>(key)] = pressed;
+}
+
+void InputManager::shutdown() noexcept {
+    keys_.fill(false);
 }

@@ -1,20 +1,27 @@
-// InputManager.h
-
 #pragma once
 
-#include <GLFW/glfw3.h>
 #include <array>
+#include <cstddef>
 
 class InputManager {
 public:
-    InputManager();
+    enum class Key : std::size_t {
+        MoveForward = 0,
+        MoveBackward,
+        MoveLeft,
+        MoveRight,
+        Shoot,
+        Count
+    };
 
-    void initialize();
-    void update();
-    bool isKeyPressed(int key);
-    void shutdown();
+    InputManager() = default;
+
+    void initialize() noexcept;
+    void update() noexcept;
+    bool isKeyPressed(Key key) const noexcept;
+    void setKeyState(Key key, bool pressed) noexcept;
+    void shutdown() noexcept;
 
 private:
-    GLFWwindow* window;
-    std::array<bool, 350> keys; // 350 is enough for most key codes
+    std::array<bool, static_cast<std::size_t>(Key::Count)> keys_{};
 };

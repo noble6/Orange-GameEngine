@@ -1,25 +1,23 @@
-#include "Physics.h"
+#include "engine/physics/Physics.h"
 
-Physics::Physics() {
-    // Constructor implementation
+void Physics::initialize() noexcept {
 }
 
-void Physics::initialize() {
-    // Initialization code for physics engine
+void Physics::update(float deltaTime) noexcept {
+    applyForces(deltaTime);
+    detectCollisions();
+    resolveCollisions();
 }
 
-void Physics::update(float deltaTime) {
-    // Update physics simulation based on deltaTime
+void Physics::cleanup() noexcept {
 }
 
-void Physics::applyForces() {
-    // Apply forces to objects in the physics simulation
+void Physics::applyForces(float deltaTime) noexcept {
+    (void)deltaTime;
 }
 
-void Physics::detectCollisions() {
-    // Collision detection logic
+void Physics::detectCollisions() noexcept {
 }
 
-void Physics::resolveCollisions() {
-    // Collision resolution logic
+void Physics::resolveCollisions() noexcept {
 }

@@ -1,94 +1,41 @@
-#include "Game.h"
-#include "engine/core/Engine.h"
-#include "engine/graphics/Renderer.h"
-#include "engine/physics/Physics.h"
-#include "engine/input/InputManager.h"
-#include "game/player/Player.h"
-#include "game/enemies/Enemy.h"
-#include <memory> // Add this for smart pointers
-#include <iostream>
+#include "game/Game.h"
 
-Game::Game() : player(nullptr), enemies() {}
+namespace {
+constexpr std::size_t kInitialEnemyCount = 128;
+constexpr float kSpawnSpacing = 2.5f;
+}  // namespace
 
 void Game::initialize() {
-    // Initialize engine components
-    engine.initialize();
-    renderer.initialize();
-    physics.initialize();
-    inputManager.initialize();
+    player_.initialize();
 
-    // Initialize player
-    player = std::make_unique<Player>();
-    player->initialize();
+    enemies_.clear();
+    enemies_.reserve(kInitialEnemyCount);
 
-    // Initialize enemies
-    for (int i = 0; i < 5; ++i) {
-        auto enemy = std::make_unique<Enemy>();
-        enemy->initialize();
-        enemies.push_back(std::move(enemy));
+    for (std::size_t i = 0; i < kInitialEnemyCount; ++i) {
+        Enemy enemy;
+        enemy.initialize(Vec3{static_cast<float>(i) * kSpawnSpacing, 0.0f, 0.0f});
+        enemies_.push_back(enemy);
     }
-
-    std::cout << "Game initialized\n";
 }
 
-void Game::update() {
-    // Update input
-    inputManager.update();
+void Game::update(float deltaTime, const InputManager& inputManager) {
+    player_.update(deltaTime, inputManager);
 
-    // Update player
-    if (player) {
-        player->update();
+    for (auto& enemy : enemies_) {
+        enemy.update(deltaTime, player_);
     }
-
-    // Update enemies
-    for (auto& enemy : enemies) {
-        enemy->update();
-    }
-
-    // Update physics
-    physics.update();
-
-    std::cout << "Game updating\n";
 }
 
-void Game::render() {
-    // Clear the screen
-    renderer.clear();
-
-    // Render player
-    if (player) {
-        player->render();
+void Game::render(Renderer& renderer) {
+    player_.render();
+    for (const auto& enemy : enemies_) {
+        enemy.render();
     }
 
-    // Render enemies
-    for (auto& enemy : enemies) {
-        enemy->render();
-    }
-
-    // Present the rendered frame
-    renderer.present();
-
-    std::cout << "Game rendering\n";
+    renderer.render();
 }
 
 void Game::shutdown() {
-    // Cleanup player
-    if (player) {
-        player->shutdown();
-        player.reset();
-    }
-
-    // Cleanup enemies
-    for (auto& enemy : enemies) {
-        enemy->shutdown();
-    }
-    enemies.clear();
-
-    // Cleanup engine components
-    renderer.cleanup();
-    physics.cleanup();
-    inputManager.cleanup();
-    engine.shutdown();
-
-    std::cout << "Game shutdown\n";
+    enemies_.clear();
+    player_.shutdown();
 }

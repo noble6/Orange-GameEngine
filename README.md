@@ -1,64 +1,55 @@
-# Third-Person Shooter Game Engine
+# Third Person Shooter Engine
 
-## Overview
-This project is a third-person shooter game engine designed for optimization and performance. It includes a small game as part of the development process, allowing for practical testing and iteration of engine features.
+A lightweight, modular C++ third-person shooter engine prototype focused on deterministic updates and practical runtime optimization.
+
+## Highlights
+- Deterministic fixed-step simulation (`60 Hz`) with frame-time clamping.
+- Lean engine loop with reduced runtime overhead and profiler aggregation.
+- Modular subsystems (`core`, `graphics`, `physics`, `input`) with coherent interfaces.
+- Contiguous game-object storage for better cache behavior (`std::vector<Enemy>`).
+- CI-ready pipeline with Debug/Release builds in GitHub Actions.
 
 ## Project Structure
-```
-third-person-shooter-engine
-├── engine
-│   ├── core
-│   ├── graphics
-│   ├── physics
-│   ├── input
-│   └── optimization
-├── game
-│   ├── player
-│   └── enemies
-├── assets
-│   ├── models
-│   └── shaders
-├── include
+```text
+third-person-shooter-engine/
+├── engine/
+│   ├── core/
+│   ├── graphics/
+│   ├── input/
+│   ├── physics/
+│   └── optimization/
+├── game/
+│   ├── enemies/
+│   └── player/
+├── assets/
+├── include/
+├── .github/workflows/
 ├── CMakeLists.txt
 └── README.md
 ```
 
-## Features
-- **Engine Core**: Manages the lifecycle of the game engine, including initialization, updating, and shutdown.
-- **Graphics Rendering**: Handles the rendering of graphics to the screen with a focus on performance.
-- **Physics Simulation**: Manages physics interactions and collision detection.
-- **Input Management**: Processes user input from keyboard and mouse.
-- **Performance Optimization**: Includes profiling tools to measure and log performance metrics.
+## Build
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
 
-## Getting Started
-1. **Clone the Repository**: 
-   ```
-   git clone <repository-url>
-   cd third-person-shooter-engine
-   ```
+## Strict Build (Pre-Push)
+```bash
+cmake -S . -B build-strict -DCMAKE_BUILD_TYPE=Debug -DTPS_ENGINE_WARNINGS_AS_ERRORS=ON
+cmake --build build-strict --parallel
+```
 
-2. **Build the Project**:
-   - Ensure you have CMake installed.
-   - Create a build directory and navigate into it:
-     ```
-     mkdir build
-     cd build
-     ```
-   - Run CMake to configure the project:
-     ```
-     cmake ..
-     ```
-   - Build the project:
-     ```
-     cmake --build .
-     ```
+## Run
+```bash
+./build/third_person_shooter
+```
 
-3. **Run the Game**:
-   - After building, you can run the game executable located in the build directory.
-
-## Development Notes
-- The engine is designed to be modular, allowing for easy updates and enhancements.
-- Contributions are welcome! Please follow the coding standards and guidelines outlined in the project.
+## CMake Options
+- `TPS_ENGINE_ENABLE_IPO` (default: `ON`): enables IPO/LTO when supported.
+- `TPS_ENGINE_ENABLE_NATIVE_ARCH` (default: `OFF`): enables `-march=native` for local machine-specific Release tuning.
+- `TPS_ENGINE_WARNINGS_AS_ERRORS` (default: `OFF`): treats compiler warnings as errors.
 
 ## License
-This project is licensed under the MIT License. See the LICENSE file for more details.# Orange-GameEngine
+This project is licensed under the GNU General Public License v3.0.
+See the [LICENSE](LICENSE) file for the full text.

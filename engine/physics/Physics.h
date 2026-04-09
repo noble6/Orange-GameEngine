@@ -1,21 +1,13 @@
-// This header file declares the Physics class, which manages physics simulations. 
-// It includes methods like initialize(), update(), and applyForces.
-
-#ifndef PHYSICS_H
-#define PHYSICS_H
+#pragma once
 
 class Physics {
 public:
-    Physics(); // Constructor
-
-    void initialize();
-    void update(float deltaTime);
-    void detectCollisions();      // Detect collisions between objects
-    void resolveCollisions();     // Resolve collisions by adjusting object positions and velocities
-    void applyForces();           // Apply forces to objects in the simulation
+    void initialize() noexcept;
+    void update(float deltaTime) noexcept;
+    void cleanup() noexcept;
 
 private:
-    // Add private members for managing physics state, such as gravity, collision detection, etc.
+    void applyForces(float deltaTime) noexcept;
+    void detectCollisions() noexcept;
+    void resolveCollisions() noexcept;
 };
-
-#endif // PHYSICS_H

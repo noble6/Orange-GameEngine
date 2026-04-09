@@ -1,12 +1,17 @@
-// This file declares the Renderer class, which handles rendering graphics to the screen.
-
 #pragma once
+
+#include <cstddef>
 
 class Renderer {
 public:
-    void initialize();
-    void render();
-    void clear();
-    void present();
-    void cleanup();
+    void initialize() noexcept;
+    void beginFrame() noexcept;
+    void render() noexcept;
+    void present() noexcept;
+    void cleanup() noexcept;
+
+    std::size_t frameCount() const noexcept;
+
+private:
+    std::size_t frameCount_ = 0;
 };

@@ -1,28 +1,48 @@
-#include "Enemy.h"
+#include "game/enemies/Enemy.h"
 
-Enemy::Enemy() {
-    // Initialize enemy attributes
-    health = 100;
-    damage = 10;
-    speed = 2.0f;
+#include <cmath>
+
+void Enemy::initialize(const Vec3& spawnPosition) noexcept {
+    health_ = 100;
+    position_ = spawnPosition;
 }
 
-void Enemy::move(float deltaTime) {
-    // Implement enemy movement logic
+void Enemy::update(float deltaTime, Player& player) noexcept {
+    const Vec3& playerPosition = player.getPosition();
+
+    const float dx = playerPosition.x - position_.x;
+    const float dy = playerPosition.y - position_.y;
+    const float dz = playerPosition.z - position_.z;
+
+    const float distanceSquared = dx * dx + dy * dy + dz * dz;
+    if (distanceSquared <= attackRangeSquared_) {
+        attack(player);
+        return;
+    }
+
+    const float distance = std::sqrt(distanceSquared + 1e-6f);
+    const float invDistance = 1.0f / distance;
+    const float distanceStep = speed_ * deltaTime;
+
+    position_.x += dx * invDistance * distanceStep;
+    position_.y += dy * invDistance * distanceStep;
+    position_.z += dz * invDistance * distanceStep;
 }
 
-void Enemy::attack(Player& player) {
-    // Implement attack logic on the player
-    player.takeDamage(damage);
+void Enemy::render() const noexcept {
 }
 
-void Enemy::takeDamage(int amount) {
-    health -= amount;
-    if (health <= 0) {
-        // Handle enemy death
+void Enemy::takeDamage(int amount) noexcept {
+    health_ -= amount;
+    if (health_ < 0) {
+        health_ = 0;
     }
 }
 
-int Enemy::getHealth() const {
-    return health;
+int Enemy::getHealth() const noexcept {
+    return health_;
+}
+
+void Enemy::attack(Player& player) const noexcept {
+    player.takeDamage(damage_);
 }

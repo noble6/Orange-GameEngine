@@ -1,19 +1,30 @@
 #pragma once
+
 #include "engine/input/InputManager.h"
 
 struct Vec3 {
-    float x, y, z;
-    Vec3(float x_=0, float y_=0, float z_=0) : x(x_), y(y_), z(z_) {}
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
 };
 
 class Player {
 public:
-    Player();
-    void move(float deltaX, float deltaY);
-    void update(InputManager& inputManager);
-    int getHealth() const;
+    void initialize() noexcept;
+    void update(float deltaTime, const InputManager& inputManager) noexcept;
+    void render() const noexcept;
+    void shutdown() noexcept;
+
+    void takeDamage(int damage) noexcept;
+
+    int getHealth() const noexcept;
+    const Vec3& getPosition() const noexcept;
 
 private:
-    int health;
-    Vec3 position;
+    void shoot() noexcept;
+
+    int health_ = 100;
+    Vec3 position_{};
+    float moveSpeed_ = 6.0f;
+    float shootCooldownSeconds_ = 0.0f;
 };

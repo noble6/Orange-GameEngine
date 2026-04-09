@@ -1,25 +1,22 @@
-// This file declares the Game class, which serves as the main game logic handler.
-
 #pragma once
 
-#include <memory>
 #include <vector>
+
+#include "engine/input/InputManager.h"
 #include "engine/graphics/Renderer.h"
+#include "game/enemies/Enemy.h"
+#include "game/player/Player.h"
 
 class Game {
 public:
-    Game();
-    ~Game();
+    Game() = default;
 
     void initialize();
-    void update();
-    void render();
+    void update(float deltaTime, const InputManager& inputManager);
+    void render(Renderer& renderer);
     void shutdown();
 
 private:
-    class Player;
-    class Enemy;
-
-    std::unique_ptr<Player> player;
-    std::vector<std::unique_ptr<Enemy>> enemies;
+    Player player_;
+    std::vector<Enemy> enemies_;
 };
