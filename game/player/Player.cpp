@@ -6,9 +6,16 @@ void Player::initialize() noexcept {
     health_ = 100;
     position_ = Vec3{};
     shootCooldownSeconds_ = 0.0f;
+    shootRequested_ = false;
+    shotsFired_ = 0;
 }
 
 void Player::update(float deltaTime, const InputManager& inputManager) noexcept {
+    shootRequested_ = false;
+    if (health_ <= 0) {
+        return;
+    }
+
     float x = 0.0f;
     float y = 0.0f;
 
@@ -43,8 +50,16 @@ void Player::render() const noexcept {
 void Player::shutdown() noexcept {
 }
 
+bool Player::consumeShootRequest() noexcept {
+    const bool requested = shootRequested_;
+    shootRequested_ = false;
+    return requested;
+}
+
 void Player::shoot() noexcept {
     shootCooldownSeconds_ = 0.15f;
+    shootRequested_ = true;
+    ++shotsFired_;
 }
 
 void Player::takeDamage(int damage) noexcept {
@@ -60,4 +75,8 @@ int Player::getHealth() const noexcept {
 
 const Vec3& Player::getPosition() const noexcept {
     return position_;
+}
+
+std::uint32_t Player::shotsFired() const noexcept {
+    return shotsFired_;
 }

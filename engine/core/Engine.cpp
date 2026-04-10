@@ -36,20 +36,36 @@ void Engine::run(Game& game, std::size_t maxFrames) {
         frameDelta = std::clamp(frameDelta, 0.0f, kMaxFrameDelta);
         accumulator += frameDelta;
 
+        inputManager_.update();
+        if (inputManager_.quitRequested()) {
+            running_ = false;
+            continue;
+        }
+
         if (accumulator < kFixedTimeStep) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
 
-        inputManager_.update();
-
         profiler_.startProfile("frame");
+
         while (accumulator >= kFixedTimeStep) {
             profiler_.startProfile("update");
             game.update(kFixedTimeStep, inputManager_);
             physics_.update(kFixedTimeStep);
             profiler_.stopProfile("update");
+
+            if (game.shouldTerminate()) {
+                running_ = false;
+                break;
+            }
+
             accumulator -= kFixedTimeStep;
+        }
+
+        if (!running_) {
+            profiler_.stopProfile("frame");
+            break;
         }
 
         profiler_.startProfile("render");

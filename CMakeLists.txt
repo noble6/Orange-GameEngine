@@ -20,6 +20,7 @@ set(TPS_ENGINE_SOURCES
     engine/core/Engine.cpp
     engine/core/Profiler.cpp
     engine/graphics/Renderer.cpp
+    engine/rhi/IRhiDevice.cpp
     engine/input/InputManager.cpp
     engine/physics/Physics.cpp
     game/Game.cpp
@@ -30,6 +31,14 @@ set(TPS_ENGINE_SOURCES
 add_executable(third_person_shooter ${TPS_ENGINE_SOURCES})
 
 target_include_directories(third_person_shooter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+find_package(Vulkan QUIET)
+if(Vulkan_FOUND)
+    target_link_libraries(third_person_shooter PRIVATE Vulkan::Vulkan)
+    target_compile_definitions(third_person_shooter PRIVATE TPS_HAS_VULKAN=1)
+else()
+    message(STATUS "Vulkan SDK not found: vulkan backend will use stub mode")
+endif()
 
 if(MSVC)
     target_compile_options(third_person_shooter PRIVATE /W4 /permissive-)

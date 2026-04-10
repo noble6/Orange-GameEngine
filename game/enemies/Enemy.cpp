@@ -1,38 +1,46 @@
 #include "game/enemies/Enemy.h"
 
-#include <cmath>
+#include <algorithm>
+
+#include "game/player/Player.h"
 
 void Enemy::initialize(const Vec3& spawnPosition) noexcept {
     health_ = 100;
     position_ = spawnPosition;
+    attackCooldownSeconds_ = 0.0f;
 }
 
 void Enemy::update(float deltaTime, Player& player) noexcept {
-    const Vec3& playerPosition = player.getPosition();
-
-    const float dx = playerPosition.x - position_.x;
-    const float dy = playerPosition.y - position_.y;
-    const float dz = playerPosition.z - position_.z;
-
-    const float distanceSquared = dx * dx + dy * dy + dz * dz;
-    if (distanceSquared <= attackRangeSquared_) {
-        attack(player);
+    if (!isAlive()) {
         return;
     }
 
-    const float distance = std::sqrt(distanceSquared + 1e-6f);
-    const float invDistance = 1.0f / distance;
-    const float distanceStep = speed_ * deltaTime;
+    attackCooldownSeconds_ = std::max(0.0f, attackCooldownSeconds_ - deltaTime);
 
-    position_.x += dx * invDistance * distanceStep;
-    position_.y += dy * invDistance * distanceStep;
-    position_.z += dz * invDistance * distanceStep;
+    const Vec3& playerPosition = player.getPosition();
+    const Vec3 toPlayer = playerPosition - position_;
+    const float distanceSq = lengthSquared(toPlayer);
+
+    if (distanceSq <= attackRangeSquared_) {
+        if (attackCooldownSeconds_ <= 0.0f) {
+            attack(player);
+            attackCooldownSeconds_ = 0.65f;
+        }
+        return;
+    }
+
+    const Vec3 direction = normalizedOrZero(toPlayer);
+    position_ = position_ + direction * (speed_ * deltaTime);
 }
 
 void Enemy::render() const noexcept {
 }
 
 void Enemy::takeDamage(int amount) noexcept {
+    if (!isAlive()) {
+        return;
+    }
+
     health_ -= amount;
     if (health_ < 0) {
         health_ = 0;
@@ -43,6 +51,14 @@ int Enemy::getHealth() const noexcept {
     return health_;
 }
 
-void Enemy::attack(Player& player) const noexcept {
+bool Enemy::isAlive() const noexcept {
+    return health_ > 0;
+}
+
+const Vec3& Enemy::getPosition() const noexcept {
+    return position_;
+}
+
+void Enemy::attack(Player& player) noexcept {
     player.takeDamage(damage_);
 }

@@ -9,6 +9,6 @@ int main() {
         return 1;
     }
 
-    engine.run(game, 600);
+    engine.run(game);
     return 0;
 }
