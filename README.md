@@ -1,33 +1,61 @@
-# Third Person Shooter Engine
+# Third Person Shooter Engine (TPS Engine)
 
-A C++ optimization-first shooter engine prototype focused on deterministic updates, measurable rendering cost, and practical solo/small-team iteration.
+> **A C++ optimization-first game engine built for performance, determinism, and real-world efficiency.**
+> Designed for developers who care about *actual rendering cost*, not just visual tricks.
 
-## Core Philosophy
-- Optimize for real cost per rendered pixel.
-- Prefer compact data paths over brute-force full-screen work.
-- Use visibility, depth, and stencil-style thinking to avoid redundant shading.
-- Keep expensive techniques conditional and scene-dependent.
-- Make every major performance decision measurable.
+---
 
-## Current State
-- Playable terminal sample loop with deterministic 60 Hz simulation.
-- Culling-driven renderer pass pipeline.
-- Forward+/deferred-lite path selection based on scene pressure.
-- Shadow caster budget and visibility cap controls.
-- CPU pass timings, estimated bandwidth, and frame budget status overlay.
-- Explicit RHI abstraction with `null` and Vulkan backends.
-- GPU timestamp-scope API wired at pass level with Vulkan query-pool implementation.
+## ⚡ What is this?
 
-## Project Layout
-```text
+TPS Engine is a **performance-driven game engine prototype** written in C++, focused on:
+
+*  Deterministic simulation
+*  Measurable rendering cost
+*  Low-overhead architecture
+*  Efficient GPU/CPU utilization
+
+This is **not** a "throw hardware at it" engine.
+This is an engine built on the idea that:
+
+> *Good engineering beats brute force.*
+
+---
+
+## 🧬 Core Philosophy
+
+* Optimize for **real cost per pixel**, not just visuals.
+* Avoid unnecessary **full-screen passes**.
+* Use **depth, stencil, and visibility** to eliminate wasted work.
+* Prefer **compact data formats** over bloated buffers.
+* Make performance **measurable, visible, and controllable**.
+* Design systems that scale by **efficiency**, not hardware brute force.
+
+---
+
+## 🛠️ Current Features
+
+* 🔁 Deterministic **60 Hz simulation loop**
+* 👁️ **Culling-driven rendering pipeline**
+* 🔀 Dynamic **Forward+ / Deferred-lite switching**
+* 🌑 **Shadow caster budgeting system**
+* 📊 Real-time **performance overlay**
+* ⏱️ CPU + GPU (Vulkan) **timing instrumentation**
+* 🧩 Modular **RHI abstraction** (`null` + `vulkan`)
+* 📉 Frame budget tracking with **live diagnostics**
+
+---
+
+## 🧱 Project Structure
+
+```
 third-person-shooter-engine/
 ├── engine/
 │   ├── core/         # loop, profiler, math
-│   ├── graphics/     # renderer, pass scheduling, diagnostics
-│   ├── input/        # terminal input + deterministic fallback
-│   ├── physics/      # fixed-step physics hooks
-│   ├── rhi/          # backend abstraction + stubs
-│   └── optimization/ # legacy profiler include path
+│   ├── graphics/     # renderer, passes, diagnostics
+│   ├── input/        # terminal + fallback input
+│   ├── physics/      # fixed-step simulation hooks
+│   ├── rhi/          # rendering backend abstraction
+│   └── optimization/ # profiling / legacy paths
 ├── game/
 │   ├── player/
 │   └── enemies/
@@ -37,104 +65,198 @@ third-person-shooter-engine/
 └── README.md
 ```
 
-## Build
+---
+
+## ⚙️ Build Instructions
+
+### 🔧 Release Build
+
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-## Strict Build
+### 🧪 Strict Debug Build
+
 ```bash
 cmake -S . -B build-strict -DCMAKE_BUILD_TYPE=Debug -DTPS_ENGINE_WARNINGS_AS_ERRORS=ON
 cmake --build build-strict --parallel
 ```
 
-## Run
+---
+
+## ▶️ Run
+
 ```bash
 ./build/third_person_shooter
 ```
 
-## Controls
-- `W A S D`: move
-- `SPACE`: shoot
-- `Q`: quit
+---
 
-## Renderer Pass Order
-1. `visibility`
-2. `depth_prepass` (optional)
-3. `shadow` (optional, budgeted casters)
-4. `lighting` (forward+ or deferred-lite)
-5. `volumetric_fog` (optional)
-6. `transparent`
-7. `post` (optional)
+## 🎮 Controls
 
-## Runtime Tuning Knobs
-Set via environment variables.
+| Key     | Action |
+| ------- | ------ |
+| W A S D | Move   |
+| SPACE   | Shoot  |
+| Q       | Quit   |
 
-### Quality / Feature Switches
-- `TPS_DEPTH_PREPASS=0|1` (default `1`)
-- `TPS_SHADOWS=0|1` (default `1`)
-- `TPS_FORCE_DEFERRED=0|1` (default `0`)
-- `TPS_SSAO=0|1` (default `0`)
-- `TPS_FOG=0|1` (default `0`)
-- `TPS_POST=0|1` (default `1`)
-- `TPS_MSAA=1|2|4|8` (default `1`)
+---
 
-### Cost Control / Budget Knobs
-- `TPS_CULL_DISTANCE=<float>` (default `20.0`)
-- `TPS_MAX_VISIBLE_ENEMIES=<int>` (default `256`)
-- `TPS_SHADOW_CASTER_BUDGET=<int>` (default `48`)
-- `TPS_TARGET_FRAME_MS=<float>` (default `16.67`)
+## 🧠 Rendering Pipeline
 
-### Overlay / Diagnostics
-- `TPS_OVERLAY=0|1` (default `1`)
-- `TPS_OVERLAY_EVERY_N_FRAMES=<int>` (default `8`)
+```
+1. visibility
+2. depth_prepass (optional)
+3. shadow (budgeted)
+4. lighting (forward+ / deferred-lite)
+5. volumetric_fog (optional)
+6. transparent
+7. post (optional)
+```
 
-### RHI Backend
-- `TPS_RHI_BACKEND=null|vulkan` (default `null`, `vulkan_stub` also accepted)
+### 💡 Key Design Choices
 
-## Vulkan Timestamp Backend Notes
-- When compiled with Vulkan SDK available, selecting `TPS_RHI_BACKEND=vulkan` enables a real query-pool timestamp path.
-- Current Vulkan path is headless (no swapchain) and focused on pass timing instrumentation.
-- If Vulkan initialization fails at runtime (no compatible device/driver/permissions), renderer falls back to `null` backend automatically.
-- In fallback mode, GPU timing fields remain unavailable and CPU timings stay active.
+* **Conditional passes only** — no blind full-screen cost
+* **Shadow budgets** instead of unlimited cascades
+* **Dynamic pipeline selection** based on scene pressure
+* **Minimal overdraw philosophy**
 
-## Example Profiles
-Lower cost profile:
+---
+
+## 🎛️ Runtime Configuration
+
+All tuning is controlled via **environment variables**.
+
+### 🎚️ Quality Controls
+
+```bash
+TPS_DEPTH_PREPASS=0|1
+TPS_SHADOWS=0|1
+TPS_FORCE_DEFERRED=0|1
+TPS_SSAO=0|1
+TPS_FOG=0|1
+TPS_POST=0|1
+TPS_MSAA=1|2|4|8
+```
+
+### ⚖️ Performance Budgets
+
+```bash
+TPS_CULL_DISTANCE=<float>
+TPS_MAX_VISIBLE_ENEMIES=<int>
+TPS_SHADOW_CASTER_BUDGET=<int>
+TPS_TARGET_FRAME_MS=<float>
+```
+
+### 📊 Diagnostics
+
+```bash
+TPS_OVERLAY=0|1
+TPS_OVERLAY_EVERY_N_FRAMES=<int>
+```
+
+### 🧩 Backend Selection
+
+```bash
+TPS_RHI_BACKEND=null|vulkan
+```
+
+---
+
+## 📈 Performance Overlay
+
+Real-time metrics include:
+
+* Visible vs culled objects
+* Shadow caster selection
+* Estimated pixel cost & overdraw
+* Per-pass CPU timings
+* Estimated bandwidth usage
+* Frame budget status (`OK` / `OVER`)
+* Active rendering backend
+
+---
+
+## 🔬 Vulkan Backend Notes
+
+* Uses **query-pool timestamps** for GPU profiling
+* Currently **headless (no swapchain)** — focused on instrumentation
+* Automatically falls back to `null` backend if Vulkan fails
+* GPU timings disabled in fallback mode
+
+---
+
+## ⚙️ Example Profiles
+
+### 🟢 Low-Cost Mode
+
 ```bash
 TPS_SHADOWS=0 TPS_FOG=0 TPS_POST=0 TPS_MAX_VISIBLE_ENEMIES=128 ./build/third_person_shooter
 ```
 
-Higher quality profile:
+### 🔵 High-Quality Mode
+
 ```bash
 TPS_MSAA=2 TPS_SHADOWS=1 TPS_POST=1 TPS_TARGET_FRAME_MS=16.67 ./build/third_person_shooter
 ```
 
-## Overlay Metrics
-- Submitted, visible, and culled objects.
-- Shadow casters selected after budget/cull.
-- Estimated shaded and overdraw pixel load.
-- Per-pass CPU ms and estimated bytes touched.
-- Frame CPU budget status (`OK` / `OVER`).
-- Active RHI backend.
+---
 
-## What Is Intentionally Stubbed
-- Real GPU backend execution and resource barriers.
-- Actual GPU timestamp query resolution.
-- Real rasterization/graphics API output (current visual is ASCII diagnostic view).
-- Asset import/compression pipeline implementation.
+## 🚧 What's Stubbed (for now)
 
-## Next Recommended Milestones
-1. Implement real Vulkan backend with query-pool timestamp resolve.
-2. Replace estimated bandwidth counters with measured GPU counters where available.
-3. Add compact material/texture pipeline with BCn conversion and packed masks.
-4. Add render graph resource lifetime/transitions and pass dependency validation.
-5. Add automated perf regression checks in CI from fixed deterministic camera runs.
+* Full GPU rendering backend
+* Real raster output (currently ASCII debug view)
+* Resource barriers & full render graph
+* Asset import + compression pipeline
+* Final GPU timing resolve
 
-## CMake Options
-- `TPS_ENGINE_ENABLE_IPO` (default `ON`)
-- `TPS_ENGINE_ENABLE_NATIVE_ARCH` (default `OFF`)
-- `TPS_ENGINE_WARNINGS_AS_ERRORS` (default `OFF`)
+---
 
-## License
-GNU General Public License v3.0. See [LICENSE](LICENSE).
+## 🗺️ Roadmap
+
+* [ ] Full Vulkan renderer (swapchain + presentation)
+* [ ] Accurate GPU bandwidth + timing metrics
+* [ ] Texture compression pipeline (BCn + packing)
+* [ ] Render graph with dependency tracking
+* [ ] Automated performance regression testing
+* [ ] Advanced material system
+* [ ] Real-time lighting improvements
+
+---
+
+## 🧠 Engine Philosophy (TL;DR)
+
+> **Modern engines waste work. This one refuses to.**
+
+* No blind full-resolution effects
+* No oversized buffers
+* No hidden costs
+* No fake performance via upscaling tricks
+
+Just **clean, measurable, efficient rendering.**
+
+---
+
+## ⚖️ License
+
+Licensed under **GNU GPL v3.0**
+See [LICENSE](LICENSE)
+
+---
+
+## 👤 Author
+
+Built by a developer who believes:
+
+> *Optimization is a mindset, not a post-process.*
+
+---
+
+## ⭐ Final Note
+
+This engine is not trying to compete with AAA engines.
+
+It's trying to prove something:
+
+> ⚡ **That efficiency still matters.**
