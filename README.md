@@ -1,4 +1,4 @@
-# Third Person Shooter Engine (TPS Engine)
+# Third Person Shooter Engine (TPS Engine-BETA)
 
 > **A C++ optimization-first game engine built for performance, determinism, and real-world efficiency.**
 > Designed for developers who care about *actual rendering cost*, not just visual tricks.
