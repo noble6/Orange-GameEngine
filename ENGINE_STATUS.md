@@ -10,7 +10,7 @@
 - **Project Configuration:** Builds seamlessly with CMake on Linux environments.
 - **Engine Loop:** Fixed-step simulation loop active at 60 Hz (Deterministic).
 - **Core Dependencies:** Vulkan abstraction active, capable of non-blocking timestamp GPU recovery.
-- **Render Graph:** Dependency validation mapping, implicit execution structure, non-blocking hardware sync implementations.
+- **Render Graph:** Dependency validation mapping, hazard checks, explicit resource-state transition synthesis and compiled pass ordering.
 - **Opt-in Optimizations:** Dynamic culling pre-pass, shadow casters gating, forward+/deferred dynamic switching correctly built within the graph.
 - **Vulkan Instrumentation:** Hardware validation layer toggle active `TPS_VK_VALIDATION`. GPU timing and profiling natively active in-engine.
 - **Control Interface:** Complete terminal-integrated test-bed active (W,A,S,D, SPACE, Q) for engine structural checks.

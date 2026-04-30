@@ -85,7 +85,7 @@ void Game::shutdown() {
 }
 
 bool Game::shouldTerminate() const noexcept {
-    return false;
+    return victory_ || defeat_;
 }
 
 void Game::applyPlayerShot() {

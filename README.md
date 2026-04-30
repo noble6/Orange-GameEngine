@@ -100,6 +100,25 @@ cmake --build build-strict --parallel
 ./build/third_person_shooter
 ```
 
+## Playable Demo
+
+If SDL2 is available, this repo now builds a windowed playable demo with generated textures and basic synthesized SFX.
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTPS_ENGINE_REQUIRE_VULKAN=OFF
+cmake --build build --parallel
+./build/tps_playable_demo
+```
+
+Demo controls:
+
+| Key / Input      | Action      |
+| ---------------- | ----------- |
+| W A S D          | Move        |
+| Mouse Left/SPACE | Shoot       |
+| R                | Restart (after death) |
+| ESC              | Quit        |
+
 ---
 
 ## Controls
@@ -226,7 +245,7 @@ TPS_MSAA=2 TPS_SHADOWS=1 TPS_POST=1 TPS_TARGET_FRAME_MS=16.67 ./build/third_pers
 
 * Full GPU rendering backend
 * Real raster output (currently ASCII debug view)
-* Full resource-lifetime tracking + barrier synthesis in render graph
+* Cross-frame resource lifetime tracking in render graph
 * Asset import + compression pipeline
 * Multi-frame in-flight command submission path
 
@@ -237,7 +256,7 @@ TPS_MSAA=2 TPS_SHADOWS=1 TPS_POST=1 TPS_TARGET_FRAME_MS=16.67 ./build/third_pers
 * [ ] Full Vulkan renderer (swapchain + presentation)
 * [ ] Accurate GPU bandwidth + timing metrics
 * [ ] Texture compression pipeline (BCn + packing)
-* [ ] Render graph with dependency tracking
+* [x] Render graph with dependency tracking
 * [ ] Automated performance regression testing
 * [ ] Advanced material system
 * [ ] Real-time lighting improvements

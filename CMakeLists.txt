@@ -38,6 +38,10 @@ add_executable(third_person_shooter ${TPS_ENGINE_SOURCES})
 
 target_include_directories(third_person_shooter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+set(TPS_DEMO_SOURCES
+    demo/PlayableDemo.cpp
+)
+
 find_package(Vulkan QUIET)
 if(Vulkan_FOUND)
     target_link_libraries(third_person_shooter PRIVATE Vulkan::Vulkan)
@@ -86,4 +90,33 @@ if(TPS_ENGINE_ENABLE_IPO)
     else()
         message(STATUS "IPO/LTO not supported: ${ipo_error}")
     endif()
+endif()
+
+find_package(SDL2 QUIET)
+if(SDL2_FOUND)
+    add_executable(tps_playable_demo ${TPS_DEMO_SOURCES})
+    target_link_libraries(tps_playable_demo PRIVATE SDL2::SDL2)
+    target_include_directories(tps_playable_demo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+    if(MSVC)
+        target_compile_options(tps_playable_demo PRIVATE /W4 /permissive-)
+        if(TPS_ENGINE_WARNINGS_AS_ERRORS)
+            target_compile_options(tps_playable_demo PRIVATE /WX)
+        endif()
+    else()
+        target_compile_options(tps_playable_demo PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Wconversion
+            -Wshadow
+            -Wnon-virtual-dtor
+        )
+
+        if(TPS_ENGINE_WARNINGS_AS_ERRORS)
+            target_compile_options(tps_playable_demo PRIVATE -Werror)
+        endif()
+    endif()
+else()
+    message(STATUS "SDL2 not found: playable demo target will be skipped")
 endif()

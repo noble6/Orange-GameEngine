@@ -13,6 +13,30 @@ constexpr std::uint64_t kDepthBytesPerPixel = 4;
 constexpr std::uint64_t kColorBytesPerPixel = 4;
 constexpr std::uint64_t kCompactGBufferBytesPerPixel = 8;
 
+const char* resourceStateName(RenderResourceState state) noexcept {
+    switch (state) {
+        case RenderResourceState::Undefined:
+            return "undefined";
+        case RenderResourceState::RenderTarget:
+            return "render_target";
+        case RenderResourceState::DepthStencilTarget:
+            return "depth_stencil_target";
+        case RenderResourceState::DepthStencilRead:
+            return "depth_stencil_read";
+        case RenderResourceState::ShaderResource:
+            return "shader_resource";
+        case RenderResourceState::UnorderedAccess:
+            return "unordered_access";
+        case RenderResourceState::TransferSrc:
+            return "transfer_src";
+        case RenderResourceState::TransferDst:
+            return "transfer_dst";
+        case RenderResourceState::Present:
+            return "present";
+    }
+    return "unknown";
+}
+
 bool parseBoolEnv(const char* envName, bool fallback) noexcept {
     const char* value = std::getenv(envName);
     if (value == nullptr || value[0] == '\0') {
@@ -219,46 +243,46 @@ bool Renderer::buildRenderGraph() noexcept {
         "visibility",
         true,
         {},
-        {RenderResourceUsage{"enemy_instances", RenderResourceAccess::Read},
-         RenderResourceUsage{"visible_list", RenderResourceAccess::Write}}});
+        {RenderResourceUsage{"enemy_instances", RenderResourceAccess::Read, RenderResourceState::ShaderResource},
+         RenderResourceUsage{"visible_list", RenderResourceAccess::Write, RenderResourceState::UnorderedAccess}}});
     nodes.push_back(RenderPassNodeDesc{
         "depth_prepass",
         config_.enableDepthPrepass,
         {"visibility"},
-        {RenderResourceUsage{"visible_list", RenderResourceAccess::Read},
-         RenderResourceUsage{"depth", RenderResourceAccess::Write}}});
+        {RenderResourceUsage{"visible_list", RenderResourceAccess::Read, RenderResourceState::ShaderResource},
+         RenderResourceUsage{"depth", RenderResourceAccess::Write, RenderResourceState::DepthStencilTarget}}});
     nodes.push_back(RenderPassNodeDesc{
         "shadow",
         config_.enableShadowPass,
         {"visibility"},
-        {RenderResourceUsage{"visible_list", RenderResourceAccess::Read},
-         RenderResourceUsage{"shadow_map", RenderResourceAccess::Write}}});
+        {RenderResourceUsage{"visible_list", RenderResourceAccess::Read, RenderResourceState::ShaderResource},
+         RenderResourceUsage{"shadow_map", RenderResourceAccess::Write, RenderResourceState::DepthStencilTarget}}});
     nodes.push_back(RenderPassNodeDesc{
         "lighting",
         true,
         {"visibility", "depth_prepass", "shadow"},
-        {RenderResourceUsage{"visible_list", RenderResourceAccess::Read},
-         RenderResourceUsage{"depth", RenderResourceAccess::Read},
-         RenderResourceUsage{"shadow_map", RenderResourceAccess::Read},
-         RenderResourceUsage{"hdr_color", RenderResourceAccess::Write}}});
+        {RenderResourceUsage{"visible_list", RenderResourceAccess::Read, RenderResourceState::ShaderResource},
+         RenderResourceUsage{"depth", RenderResourceAccess::Read, RenderResourceState::DepthStencilRead},
+         RenderResourceUsage{"shadow_map", RenderResourceAccess::Read, RenderResourceState::ShaderResource},
+         RenderResourceUsage{"hdr_color", RenderResourceAccess::Write, RenderResourceState::RenderTarget}}});
     nodes.push_back(RenderPassNodeDesc{
         "volumetric_fog",
         config_.enableVolumetricFog,
         {"lighting"},
-        {RenderResourceUsage{"depth", RenderResourceAccess::Read},
-         RenderResourceUsage{"hdr_color", RenderResourceAccess::ReadWrite}}});
+        {RenderResourceUsage{"depth", RenderResourceAccess::Read, RenderResourceState::DepthStencilRead},
+         RenderResourceUsage{"hdr_color", RenderResourceAccess::ReadWrite, RenderResourceState::RenderTarget}}});
     nodes.push_back(RenderPassNodeDesc{
         "transparent",
         true,
         {"lighting"},
-        {RenderResourceUsage{"depth", RenderResourceAccess::Read},
-         RenderResourceUsage{"hdr_color", RenderResourceAccess::ReadWrite}}});
+        {RenderResourceUsage{"depth", RenderResourceAccess::Read, RenderResourceState::DepthStencilRead},
+         RenderResourceUsage{"hdr_color", RenderResourceAccess::ReadWrite, RenderResourceState::RenderTarget}}});
     nodes.push_back(RenderPassNodeDesc{
         "post",
         config_.enablePost,
         {"transparent", "volumetric_fog"},
-        {RenderResourceUsage{"hdr_color", RenderResourceAccess::Read},
-         RenderResourceUsage{"backbuffer", RenderResourceAccess::Write}}});
+        {RenderResourceUsage{"hdr_color", RenderResourceAccess::Read, RenderResourceState::ShaderResource},
+         RenderResourceUsage{"backbuffer", RenderResourceAccess::Write, RenderResourceState::Present}}});
 
     if (!renderGraph_.build(std::move(nodes))) {
         if (!renderGraphErrorLogged_) {
@@ -266,6 +290,20 @@ bool Renderer::buildRenderGraph() noexcept {
             renderGraphErrorLogged_ = true;
         }
         return false;
+    }
+
+    const std::vector<CompiledRenderPass>& compiledPasses = renderGraph_.compiledPasses();
+    std::cout << "[Renderer] Render graph compiled with " << compiledPasses.size() << " active passes.\n";
+    for (const CompiledRenderPass& pass : compiledPasses) {
+        if (pass.prePassBarriers.empty()) {
+            continue;
+        }
+
+        for (const RenderGraphBarrier& barrier : pass.prePassBarriers) {
+            std::cout << "[Renderer][RG] pass=" << pass.name << " barrier " << barrier.resourceName
+                      << " " << resourceStateName(barrier.stateBefore) << " -> "
+                      << resourceStateName(barrier.stateAfter) << '\n';
+        }
     }
 
     return true;
