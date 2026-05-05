@@ -543,8 +543,8 @@ void Renderer::passPost(PassCost& pass) noexcept {
 }
 
 void Renderer::drawAsciiFrame() noexcept {
-    const std::size_t width = static_cast<std::size_t>(config_.viewportWidth);
-    const std::size_t height = static_cast<std::size_t>(config_.viewportHeight);
+    const std::size_t width = std::min(static_cast<std::size_t>(config_.viewportWidth), 120UL);
+    const std::size_t height = std::min(static_cast<std::size_t>(config_.viewportHeight), 40UL);
     const std::size_t stride = width + 1U;
 
     frameBuffer_.assign(stride * height, ' ');
