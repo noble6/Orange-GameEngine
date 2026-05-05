@@ -2,6 +2,10 @@
 
 #include <cstdlib>
 
+#if defined(TPS_HAS_SDL2)
+#include <SDL2/SDL.h>
+#endif
+
 #if defined(__unix__) || defined(__APPLE__)
 #include <fcntl.h>
 #include <termios.h>
@@ -97,6 +101,19 @@ void InputManager::update() noexcept {
         keys_[i] = true;
         --holdFrames_[i];
     }
+
+#if defined(TPS_HAS_SDL2)
+    int numKeys = 0;
+    const std::uint8_t* state = SDL_GetKeyboardState(&numKeys);
+    if (state != nullptr) {
+        if (state[SDL_SCANCODE_W]) setKeyState(Key::MoveForward, true);
+        if (state[SDL_SCANCODE_S]) setKeyState(Key::MoveBackward, true);
+        if (state[SDL_SCANCODE_A]) setKeyState(Key::MoveLeft, true);
+        if (state[SDL_SCANCODE_D]) setKeyState(Key::MoveRight, true);
+        if (state[SDL_SCANCODE_SPACE]) setKeyState(Key::Shoot, true);
+        if (state[SDL_SCANCODE_Q]) quitRequested_ = true;
+    }
+#endif
 
     if (!terminalInputEnabled_) {
         // Deterministic fallback path for non-interactive runs.

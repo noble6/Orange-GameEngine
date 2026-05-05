@@ -7,6 +7,8 @@
 #include "engine/input/InputManager.h"
 #include "engine/physics/Physics.h"
 
+struct SDL_Window;
+
 class Game;
 
 class Engine {
@@ -20,6 +22,7 @@ private:
     static constexpr float kMaxFrameDelta = 0.25f;
 
     bool running_ = false;
+    SDL_Window* window_ = nullptr;
     Renderer renderer_;
     InputManager inputManager_;
     Physics physics_;

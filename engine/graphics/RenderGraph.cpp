@@ -56,6 +56,57 @@ const std::string& RenderGraph::lastError() const noexcept {
     return lastError_;
 }
 
+std::string RenderGraph::emitDebugGraphviz() const noexcept {
+    std::ostringstream oss;
+    oss << "digraph RenderGraph {\n";
+    oss << "  rankdir=LR;\n";
+    oss << "  node [shape=box, fontname=\"Courier\"];\n";
+
+    for (std::size_t i = 0; i < nodes_.size(); ++i) {
+        const auto& node = nodes_[i];
+        const char* color = node.enabled ? "black" : "gray";
+        oss << "  pass" << i << " [label=\"" << (node.name ? node.name : "unnamed") 
+            << "\", color=" << color << ", fontcolor=" << color << "];\n";
+    }
+
+    for (std::size_t i = 0; i < adjacency_.size(); ++i) {
+        for (std::size_t target : adjacency_[i]) {
+            oss << "  pass" << i << " -> pass" << target << ";\n";
+        }
+    }
+
+    // Add resource dependencies as well
+    std::unordered_map<std::string, std::vector<std::size_t>> resourceReaders;
+    std::unordered_map<std::string, std::vector<std::size_t>> resourceWriters;
+
+    for (std::size_t i = 0; i < nodes_.size(); ++i) {
+        for (const auto& usage : nodes_[i].resources) {
+            if (usage.name && usage.name[0] != '\0') {
+                if (isWriteAccess(usage.access)) {
+                    resourceWriters[usage.name].push_back(i);
+                } else {
+                    resourceReaders[usage.name].push_back(i);
+                }
+            }
+        }
+    }
+
+    for (const auto& [name, writers] : resourceWriters) {
+        oss << "  res_" << name << " [label=\"" << name << "\", shape=ellipse, color=blue, fontcolor=blue];\n";
+        for (std::size_t writer : writers) {
+            oss << "  pass" << writer << " -> res_" << name << " [color=blue];\n";
+        }
+        if (resourceReaders.count(name)) {
+            for (std::size_t reader : resourceReaders.at(name)) {
+                oss << "  res_" << name << " -> pass" << reader << " [color=green];\n";
+            }
+        }
+    }
+
+    oss << "}\n";
+    return oss.str();
+}
+
 bool RenderGraph::validateDependencies() noexcept {
     std::unordered_map<std::string_view, std::size_t> nameToIndex;
     nameToIndex.reserve(nodes_.size());
@@ -207,7 +258,7 @@ void RenderGraph::synthesizeBarriers() noexcept {
     compiledPasses_.reserve(executionOrder_.size());
 
     // Track the running state of each physical resource during execution order
-    std::unordered_map<std::string, RenderResourceState> currentStates;
+    std::unordered_map<std::string, RenderResourceState> currentStates = persistentResourceStates_;
 
     for (std::size_t passIndex : executionOrder_) {
         const RenderPassNodeDesc& node = nodes_[passIndex];
@@ -239,6 +290,10 @@ void RenderGraph::synthesizeBarriers() noexcept {
 
                 // Update the current state of the resource
                 currentStates[name] = usage.requiredState;
+                
+                if (usage.persistent) {
+                    persistentResourceStates_[name] = usage.requiredState;
+                }
             }
         }
         

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cctype>
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string_view>
@@ -93,17 +94,17 @@ float parseFloatEnv(const char* envName, float fallback) noexcept {
 }
 }  // namespace
 
-void Renderer::initialize() noexcept {
+void Renderer::initialize(void* windowHandle) noexcept {
     const char* backendEnvValue = std::getenv("TPS_RHI_BACKEND");
     if (backendEnvValue == nullptr || backendEnvValue[0] == '\0') {
         std::cerr << "[RHI] TPS_RHI_BACKEND not set, defaulting to vulkan.\n";
     }
 
     rhiDevice_ = createRhiDeviceFromEnvironment();
-    if (!rhiDevice_ || !rhiDevice_->initialize()) {
+    if (!rhiDevice_ || !rhiDevice_->initialize(windowHandle)) {
         std::cerr << "[RHI] Vulkan backend initialization failed, falling back to null backend.\n";
         rhiDevice_ = createRhiDevice(RhiBackend::Null);
-        (void)rhiDevice_->initialize();
+        (void)rhiDevice_->initialize(windowHandle);
     } else if (std::string_view(rhiDevice_->backendName()) == "vulkan_stub") {
         std::cerr << "[RHI] Vulkan SDK was not linked at build time; running with vulkan_stub (no real GPU timestamps).\n";
     }
@@ -145,6 +146,13 @@ void Renderer::initialize() noexcept {
 void Renderer::beginFrame() noexcept {
     if (rhiDevice_) {
         rhiDevice_->beginFrame();
+        
+        std::uint32_t w, h;
+        rhiDevice_->getSwapchainExtent(w, h);
+        if (w > 0 && h > 0) {
+            config_.viewportWidth = static_cast<std::uint16_t>(w);
+            config_.viewportHeight = static_cast<std::uint16_t>(h);
+        }
     }
 
     enemies_.clear();
@@ -172,6 +180,19 @@ void Renderer::submitPlayer(const Vec3& position,
 
 void Renderer::submitEnemy(const Vec3& position, std::uint16_t health) noexcept {
     enemies_.push_back(EnemyProxy{position, health});
+}
+
+void Renderer::setCameraMatrices(const Mat4& view, const Mat4& proj) noexcept {
+    camera_.view = view;
+    camera_.proj = proj;
+}
+
+void Renderer::submitCamera(float yaw, float pitch, float armLength, const Vec3& position, bool aimMode) noexcept {
+    camera_.yaw = yaw;
+    camera_.pitch = pitch;
+    camera_.armLength = armLength;
+    camera_.position = position;
+    camera_.aimMode = aimMode;
 }
 
 void Renderer::render() noexcept {
@@ -281,8 +302,8 @@ bool Renderer::buildRenderGraph() noexcept {
         "post",
         config_.enablePost,
         {"transparent", "volumetric_fog"},
-        {RenderResourceUsage{"hdr_color", RenderResourceAccess::Read, RenderResourceState::ShaderResource},
-         RenderResourceUsage{"backbuffer", RenderResourceAccess::Write, RenderResourceState::Present}}});
+        {RenderResourceUsage{"hdr_color", RenderResourceAccess::Read, RenderResourceState::ShaderResource, false},
+         RenderResourceUsage{"backbuffer", RenderResourceAccess::Write, RenderResourceState::Present, true}}});
 
     if (!renderGraph_.build(std::move(nodes))) {
         if (!renderGraphErrorLogged_) {
@@ -290,6 +311,13 @@ bool Renderer::buildRenderGraph() noexcept {
             renderGraphErrorLogged_ = true;
         }
         return false;
+    }
+
+    {
+        std::ofstream dotFile("render_graph.dot");
+        if (dotFile.is_open()) {
+            dotFile << renderGraph_.emitDebugGraphviz();
+        }
     }
 
     const std::vector<CompiledRenderPass>& compiledPasses = renderGraph_.compiledPasses();
@@ -652,6 +680,11 @@ void Renderer::printDiagnosticsOverlay() noexcept {
     std::cout << "\n";
 
     std::cout << frameBuffer_;
+
+    std::cout << "Camera: yaw=" << camera_.yaw << " pitch=" << camera_.pitch
+              << " armLen=" << camera_.armLength
+              << " pos=(" << camera_.position.x << ", " << camera_.position.y << ", " << camera_.position.z << ")"
+              << " aim=" << (camera_.aimMode ? "ON" : "OFF") << "\n";
 
     std::cout << "Visibility: submitted=" << diagnostics_.submittedEnemies << " visible=" << diagnostics_.visibleEnemies
               << " culled=" << diagnostics_.culledEnemies << " shadow_casters=" << diagnostics_.shadowCasters

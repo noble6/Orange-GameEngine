@@ -7,6 +7,34 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(FetchContent)
+
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4
+)
+FetchContent_MakeAvailable(stb)
+
+FetchContent_Declare(
+    bc7enc_rdo
+    GIT_REPOSITORY https://github.com/richgel999/bc7enc_rdo.git
+    GIT_TAG dbe416d28a5530b4e8cc45b14bf034dc6b96bbde
+)
+FetchContent_MakeAvailable(bc7enc_rdo)
+
+# Fix missing includes in bc7enc_rdo
+if(TARGET bc7enc)
+    target_compile_options(bc7enc PRIVATE -include cstdint)
+endif()
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
@@ -26,6 +54,10 @@ set(TPS_ENGINE_SOURCES
     engine/core/Profiler.cpp
     engine/graphics/Renderer.cpp
     engine/graphics/RenderGraph.cpp
+    engine/graphics/AssetManager.cpp
+    engine/graphics/TextureLoader.cpp
+    engine/graphics/MeshLoader.cpp
+    engine/graphics/ThirdPersonCamera.cpp
     engine/rhi/IRhiDevice.cpp
     engine/input/InputManager.cpp
     engine/physics/Physics.cpp
@@ -36,13 +68,27 @@ set(TPS_ENGINE_SOURCES
 
 add_executable(third_person_shooter ${TPS_ENGINE_SOURCES})
 
-target_include_directories(third_person_shooter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(third_person_shooter PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${stb_SOURCE_DIR}
+)
+
+target_link_libraries(third_person_shooter PRIVATE nlohmann_json::nlohmann_json)
 
 set(TPS_DEMO_SOURCES
     demo/PlayableDemo.cpp
 )
 
+add_executable(orange_texcomp tools/orange_texcomp.cpp)
+target_include_directories(orange_texcomp PRIVATE 
+    ${stb_SOURCE_DIR}
+    ${bc7enc_rdo_SOURCE_DIR}
+)
+
+
 find_package(Vulkan QUIET)
+find_package(SDL2 QUIET)
+
 if(Vulkan_FOUND)
     target_link_libraries(third_person_shooter PRIVATE Vulkan::Vulkan)
     target_compile_definitions(third_person_shooter PRIVATE TPS_HAS_VULKAN=1)
@@ -51,6 +97,13 @@ else()
         message(FATAL_ERROR "Vulkan SDK not found. Install Vulkan packages (Arch: vulkan-headers vulkan-icd-loader vulkan-tools) or configure with -DTPS_ENGINE_REQUIRE_VULKAN=OFF")
     endif()
     message(STATUS "Vulkan SDK not found: vulkan backend will use stub mode")
+endif()
+
+if(SDL2_FOUND)
+    target_link_libraries(third_person_shooter PRIVATE SDL2::SDL2)
+    target_compile_definitions(third_person_shooter PRIVATE TPS_HAS_SDL2=1)
+else()
+    message(STATUS "SDL2 not found: engine will run in headless/terminal mode only")
 endif()
 
 if(MSVC)

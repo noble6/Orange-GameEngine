@@ -8,7 +8,7 @@ class Enemy {
 public:
     Enemy() = default;
 
-    void initialize(const Vec3& spawnPosition) noexcept;
+    void initialize(const Vec3& spawnPosition, float speed = 2.5f, int health = 100) noexcept;
     void update(float deltaTime, Player& player) noexcept;
     void render() const noexcept;
 

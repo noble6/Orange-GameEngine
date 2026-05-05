@@ -18,7 +18,7 @@ class IRhiDevice {
 public:
     virtual ~IRhiDevice() = default;
 
-    virtual bool initialize() noexcept = 0;
+    virtual bool initialize(void* windowHandle = nullptr) noexcept = 0;
     virtual void shutdown() noexcept = 0;
 
     virtual void beginFrame() noexcept = 0;
@@ -26,6 +26,9 @@ public:
 
     virtual const char* backendName() const noexcept = 0;
     virtual bool supportsGpuTimestamps() const noexcept = 0;
+
+    virtual void getSwapchainExtent(std::uint32_t& width, std::uint32_t& height) const noexcept = 0;
+    virtual std::uint32_t getSwapchainFormat() const noexcept = 0;
 
     virtual GpuTimestampToken beginTimestampScope(const char* label) noexcept = 0;
     virtual void endTimestampScope(GpuTimestampToken token) noexcept = 0;

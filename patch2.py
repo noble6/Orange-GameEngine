@@ -1,188 +1,26 @@
-#include "engine/rhi/IRhiDevice.h"
+import re
 
-#include <algorithm>
-#include <array>
-#include <cctype>
-#include <cstdlib>
-#include <iostream>
-#include <string_view>
-#include <vector>
-#include <cassert>
+with open('engine/rhi/IRhiDevice.cpp', 'r') as f:
+    content = f.read()
 
-#if defined(TPS_HAS_VULKAN)
-#include <vulkan/vulkan.h>
-#endif
+if '<cassert>' not in content:
+    content = content.replace('#include <vector>', '#include <vector>\n#include <cassert>')
 
-#if defined(TPS_HAS_SDL2)
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
-#endif
+match = re.search(r'class VulkanRhiDevice final : public IRhiDevice \{.*?\n};\n', content, re.DOTALL)
+if match:
+    vulkan_class_old = match.group(0)
+else:
+    print("Could not find VulkanRhiDevice")
+    exit(1)
 
-namespace {
-class NullRhiDevice final : public IRhiDevice {
+vulkan_class_new = """class VulkanRhiDevice final : public IRhiDevice {
 public:
-    bool initialize(void* windowHandle = nullptr) noexcept override {
-        (void)windowHandle;
-        frameActive_ = false;
-        return true;
-    }
-
-    void shutdown() noexcept override {
-        frameActive_ = false;
-    }
-
-    void beginFrame() noexcept override {
-        frameActive_ = true;
-    }
-
-    void endFrame() noexcept override {
-        frameActive_ = false;
-    }
-
-    const char* backendName() const noexcept override {
-        return "null";
-    }
-
-    bool supportsGpuTimestamps() const noexcept override {
-        return false;
-    }
-
-    void getSwapchainExtent(std::uint32_t& width, std::uint32_t& height) const noexcept override {
-        width = 0;
-        height = 0;
-    }
-
-    std::uint32_t getSwapchainFormat() const noexcept override {
-        return 0;
-    }
-
-    GpuTimestampToken beginTimestampScope(const char* label) noexcept override {
-        (void)label;
-        return GpuTimestampToken{};
-    }
-
-    void endTimestampScope(GpuTimestampToken token) noexcept override {
-        (void)token;
-    }
-
-    bool resolveTimestampScopeMs(GpuTimestampToken token, double& outMs) noexcept override {
-        (void)token;
-        outMs = 0.0;
-        return false;
-    }
-
-private:
-    bool frameActive_ = false;
-};
-
-#if defined(TPS_HAS_VULKAN)
-const char* vkResultToString(VkResult result) noexcept {
-    switch (result) {
-        case VK_SUCCESS:
-            return "VK_SUCCESS";
-        case VK_NOT_READY:
-            return "VK_NOT_READY";
-        case VK_TIMEOUT:
-            return "VK_TIMEOUT";
-        case VK_EVENT_SET:
-            return "VK_EVENT_SET";
-        case VK_EVENT_RESET:
-            return "VK_EVENT_RESET";
-        case VK_INCOMPLETE:
-            return "VK_INCOMPLETE";
-        case VK_ERROR_OUT_OF_HOST_MEMORY:
-            return "VK_ERROR_OUT_OF_HOST_MEMORY";
-        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-            return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-        case VK_ERROR_INITIALIZATION_FAILED:
-            return "VK_ERROR_INITIALIZATION_FAILED";
-        case VK_ERROR_DEVICE_LOST:
-            return "VK_ERROR_DEVICE_LOST";
-        case VK_ERROR_MEMORY_MAP_FAILED:
-            return "VK_ERROR_MEMORY_MAP_FAILED";
-        case VK_ERROR_LAYER_NOT_PRESENT:
-            return "VK_ERROR_LAYER_NOT_PRESENT";
-        case VK_ERROR_EXTENSION_NOT_PRESENT:
-            return "VK_ERROR_EXTENSION_NOT_PRESENT";
-        case VK_ERROR_FEATURE_NOT_PRESENT:
-            return "VK_ERROR_FEATURE_NOT_PRESENT";
-        case VK_ERROR_INCOMPATIBLE_DRIVER:
-            return "VK_ERROR_INCOMPATIBLE_DRIVER";
-        case VK_ERROR_TOO_MANY_OBJECTS:
-            return "VK_ERROR_TOO_MANY_OBJECTS";
-        case VK_ERROR_FORMAT_NOT_SUPPORTED:
-            return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-        case VK_ERROR_FRAGMENTED_POOL:
-            return "VK_ERROR_FRAGMENTED_POOL";
-#if defined(VK_ERROR_UNKNOWN)
-        case VK_ERROR_UNKNOWN:
-            return "VK_ERROR_UNKNOWN";
-#endif
-        default:
-            return "VK_ERROR_UNRECOGNIZED";
-    }
-}
-
-bool parseBoolEnv(const char* value, bool fallback) noexcept {
-    if (value == nullptr || value[0] == '\0') {
-        return fallback;
-    }
-
-    const char c = static_cast<char>(std::tolower(static_cast<unsigned char>(value[0])));
-    if (c == '0' || c == 'f' || c == 'n') {
-        return false;
-    }
-
-    return true;
-}
-
-bool shouldEnableValidationLayers() noexcept {
-#if defined(NDEBUG)
-    constexpr bool kDebugDefault = false;
-#else
-    constexpr bool kDebugDefault = true;
-#endif
-    return parseBoolEnv(std::getenv("TPS_VK_VALIDATION"), kDebugDefault);
-}
-
-VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                      VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-                                                      const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
-                                                      void* userData) {
-    (void)messageTypes;
-    (void)userData;
-
-    const char* severity = "INFO";
-    if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0U) {
-        severity = "ERROR";
-    } else if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0U) {
-        severity = "WARN";
-    } else if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) != 0U) {
-        severity = "VERBOSE";
-    }
-
-    if (callbackData != nullptr && callbackData->pMessage != nullptr) {
-        std::cerr << "[RHI][Vulkan][Validation][" << severity << "] " << callbackData->pMessage << '\n';
-    }
-
-    return VK_FALSE;
-}
-
-class VulkanRhiDevice final : public IRhiDevice {
-public:
-    bool initialize(void* windowHandle = nullptr) noexcept override {
+    bool initialize() noexcept override {
         shutdown();
 
-        window_ = static_cast<SDL_Window*>(windowHandle);
-
         if (!createInstance()) { shutdown(); return false; }
-        if (window_ != nullptr && !createSurface()) { shutdown(); return false; }
         if (!pickPhysicalDevice()) { shutdown(); return false; }
         if (!createLogicalDevice()) { shutdown(); return false; }
-
-        if (surface_ != VK_NULL_HANDLE) {
-            if (!createSwapchain()) { shutdown(); return false; }
-        }
 
         for (std::uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
             if (!createFrameContext(frames_[i])) {
@@ -209,16 +47,9 @@ public:
             destroyFrameContext(frames_[i]);
         }
 
-        destroySwapchain();
-
         if (device_ != VK_NULL_HANDLE) {
             vkDestroyDevice(device_, nullptr);
             device_ = VK_NULL_HANDLE;
-        }
-
-        if (instance_ != VK_NULL_HANDLE && surface_ != VK_NULL_HANDLE) {
-            vkDestroySurfaceKHR(instance_, surface_, nullptr);
-            surface_ = VK_NULL_HANDLE;
         }
 
         destroyDebugMessenger();
@@ -227,8 +58,6 @@ public:
             vkDestroyInstance(instance_, nullptr);
             instance_ = VK_NULL_HANDLE;
         }
-
-        window_ = nullptr;
 
         physicalDevice_ = VK_NULL_HANDLE;
         queue_ = VK_NULL_HANDLE;
@@ -248,18 +77,6 @@ public:
         FrameContext& frame = frames_[currentFrameIndex_];
 
         if (!waitForFrame(frame)) return;
-
-        if (swapchain_ != VK_NULL_HANDLE) {
-            const VkResult acquireResult = vkAcquireNextImageKHR(
-                device_, swapchain_, UINT64_MAX, frame.imageAvailableSemaphore, VK_NULL_HANDLE, &currentImageIndex_);
-            
-            if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
-                // Should recreate swapchain here, but for now just skip
-                return;
-            } else if (acquireResult != VK_SUCCESS && acquireResult != VK_SUBOPTIMAL_KHR) {
-                return;
-            }
-        }
 
         if (frame.frameSubmitted) {
             (void)resolveScopes(frame);
@@ -296,33 +113,6 @@ public:
         frameActive_ = false;
         FrameContext& frame = frames_[currentFrameIndex_];
 
-        if (swapchain_ != VK_NULL_HANDLE) {
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = swapchainImages_[currentImageIndex_];
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            barrier.subresourceRange.baseMipLevel = 0;
-            barrier.subresourceRange.levelCount = 1;
-            barrier.subresourceRange.baseArrayLayer = 0;
-            barrier.subresourceRange.layerCount = 1;
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = 0;
-
-            vkCmdPipelineBarrier(
-                frame.commandBuffer,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                0,
-                0, nullptr,
-                0, nullptr,
-                1, &barrier
-            );
-        }
-
         if (vkEndCommandBuffer(frame.commandBuffer) != VK_SUCCESS) return;
 
         VkSubmitInfo submitInfo{};
@@ -330,39 +120,21 @@ public:
         submitInfo.commandBufferCount = 1U;
         submitInfo.pCommandBuffers = &frame.commandBuffer;
 
+        // Headless: unused, Swapchain: active
+        // When swapchain integration is complete, waitSemaphoreCount will be 1U
+        // waiting on imageAvailableSemaphore to ensure the acquired image is ready.
+        submitInfo.waitSemaphoreCount = 0U; // Swapchain: 1U
+        submitInfo.pWaitSemaphores = &frame.imageAvailableSemaphore;
         VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        if (swapchain_ != VK_NULL_HANDLE) {
-            submitInfo.waitSemaphoreCount = 1U;
-            submitInfo.pWaitSemaphores = &frame.imageAvailableSemaphore;
-            submitInfo.pWaitDstStageMask = waitStages;
-            submitInfo.signalSemaphoreCount = 1U;
-            submitInfo.pSignalSemaphores = &frame.renderFinishedSemaphore;
-        } else {
-            submitInfo.waitSemaphoreCount = 0U;
-            submitInfo.pWaitSemaphores = nullptr;
-            submitInfo.pWaitDstStageMask = nullptr;
-            submitInfo.signalSemaphoreCount = 0U;
-            submitInfo.pSignalSemaphores = nullptr;
-        }
+        submitInfo.pWaitDstStageMask = waitStages;
+
+        // Headless: unused, Swapchain: active
+        // When swapchain integration is complete, signalSemaphoreCount will be 1U
+        // signaling renderFinishedSemaphore for the present queue to wait on.
+        submitInfo.signalSemaphoreCount = 0U; // Swapchain: 1U
+        submitInfo.pSignalSemaphores = &frame.renderFinishedSemaphore;
 
         if (vkQueueSubmit(queue_, 1U, &submitInfo, frame.frameFence) != VK_SUCCESS) return;
-
-        if (swapchain_ != VK_NULL_HANDLE) {
-            VkPresentInfoKHR presentInfo{};
-            presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-            presentInfo.waitSemaphoreCount = 1U;
-            presentInfo.pWaitSemaphores = &frame.renderFinishedSemaphore;
-            presentInfo.swapchainCount = 1U;
-            presentInfo.pSwapchains = &swapchain_;
-            presentInfo.pImageIndices = &currentImageIndex_;
-
-            const VkResult presentResult = vkQueuePresentKHR(queue_, &presentInfo);
-            if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
-                // Should recreate swapchain here
-            } else if (presentResult != VK_SUCCESS) {
-                return;
-            }
-        }
 
         frame.frameSubmitted = true;
         currentFrameIndex_ = (currentFrameIndex_ + 1U) % kMaxFramesInFlight;
@@ -372,15 +144,6 @@ public:
 
     bool supportsGpuTimestamps() const noexcept override {
         return initialized_ && gpuTimestampsSupported_;
-    }
-
-    void getSwapchainExtent(std::uint32_t& width, std::uint32_t& height) const noexcept override {
-        width = swapchainExtent_.width;
-        height = swapchainExtent_.height;
-    }
-
-    std::uint32_t getSwapchainFormat() const noexcept override {
-        return static_cast<std::uint32_t>(swapchainImageFormat_);
     }
 
     GpuTimestampToken beginTimestampScope(const char* label) noexcept override {
@@ -484,142 +247,11 @@ private:
         std::size_t scopeCount = 0;
     };
 
-    bool createSurface() noexcept {
-#if defined(TPS_HAS_SDL2)
-        if (SDL_Vulkan_CreateSurface(window_, instance_, &surface_) != SDL_TRUE) {
-            std::cerr << "[RHI][Vulkan] SDL_Vulkan_CreateSurface failed: " << SDL_GetError() << '\n';
-            return false;
-        }
-        return true;
-#else
-        return false;
-#endif
-    }
-
-    bool createSwapchain() noexcept {
-        if (device_ == VK_NULL_HANDLE || surface_ == VK_NULL_HANDLE) return false;
-
-        VkSurfaceCapabilitiesKHR capabilities{};
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice_, surface_, &capabilities);
-
-        std::uint32_t formatCount = 0;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, surface_, &formatCount, nullptr);
-        std::vector<VkSurfaceFormatKHR> formats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, surface_, &formatCount, formats.data());
-
-        VkSurfaceFormatKHR surfaceFormat = formats[0];
-        for (const auto& f : formats) {
-            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-                surfaceFormat = f;
-                break;
-            }
-        }
-
-        std::uint32_t presentModeCount = 0;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice_, surface_, &presentModeCount, nullptr);
-        std::vector<VkPresentModeKHR> presentModes(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice_, surface_, &presentModeCount, presentModes.data());
-
-        VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        for (const auto& m : presentModes) {
-            if (m == VK_PRESENT_MODE_MAILBOX_KHR) {
-                presentMode = m;
-                break;
-            }
-        }
-
-        VkExtent2D extent = capabilities.currentExtent;
-        if (extent.width == 0xFFFFFFFFu) {
-            int w, h;
-            SDL_GetWindowSize(window_, &w, &h);
-            extent.width = std::clamp(static_cast<std::uint32_t>(w), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-            extent.height = std::clamp(static_cast<std::uint32_t>(h), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-        }
-
-        std::uint32_t imageCount = capabilities.minImageCount + 1;
-        if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
-            imageCount = capabilities.maxImageCount;
-        }
-
-        VkSwapchainCreateInfoKHR createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = surface_;
-        createInfo.minImageCount = imageCount;
-        createInfo.imageFormat = surfaceFormat.format;
-        createInfo.imageColorSpace = surfaceFormat.colorSpace;
-        createInfo.imageExtent = extent;
-        createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.preTransform = capabilities.currentTransform;
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        createInfo.presentMode = presentMode;
-        createInfo.clipped = VK_TRUE;
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-        if (vkCreateSwapchainKHR(device_, &createInfo, nullptr, &swapchain_) != VK_SUCCESS) {
-            return false;
-        }
-
-        vkGetSwapchainImagesKHR(device_, swapchain_, &imageCount, nullptr);
-        swapchainImages_.resize(imageCount);
-        vkGetSwapchainImagesKHR(device_, swapchain_, &imageCount, swapchainImages_.data());
-
-        swapchainImageFormat_ = surfaceFormat.format;
-        swapchainExtent_ = extent;
-
-        swapchainImageViews_.resize(imageCount);
-        for (std::uint32_t i = 0; i < imageCount; ++i) {
-            VkImageViewCreateInfo viewInfo{};
-            viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            viewInfo.image = swapchainImages_[i];
-            viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            viewInfo.format = swapchainImageFormat_;
-            viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            viewInfo.subresourceRange.baseMipLevel = 0;
-            viewInfo.subresourceRange.levelCount = 1;
-            viewInfo.subresourceRange.baseArrayLayer = 0;
-            viewInfo.subresourceRange.layerCount = 1;
-
-            if (vkCreateImageView(device_, &viewInfo, nullptr, &swapchainImageViews_[i]) != VK_SUCCESS) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    void destroySwapchain() noexcept {
-        if (device_ == VK_NULL_HANDLE) return;
-
-        for (auto imageView : swapchainImageViews_) {
-            vkDestroyImageView(device_, imageView, nullptr);
-        }
-        swapchainImageViews_.clear();
-
-        if (swapchain_ != VK_NULL_HANDLE) {
-            vkDestroySwapchainKHR(device_, swapchain_, nullptr);
-            swapchain_ = VK_NULL_HANDLE;
-        }
-        swapchainImages_.clear();
-    }
-
     bool createInstance() noexcept {
         const bool requestValidation = shouldEnableValidationLayers();
 
         std::vector<const char*> layers;
         std::vector<const char*> extensions;
-
-        if (window_ != nullptr) {
-#if defined(TPS_HAS_SDL2)
-            std::uint32_t sdlExtensionCount = 0;
-            if (SDL_Vulkan_GetInstanceExtensions(window_, &sdlExtensionCount, nullptr) == SDL_TRUE) {
-                const std::size_t startIdx = extensions.size();
-                extensions.resize(startIdx + sdlExtensionCount);
-                SDL_Vulkan_GetInstanceExtensions(window_, &sdlExtensionCount, &extensions[startIdx]);
-            }
-#endif
-        }
 
         if (requestValidation) {
             if (hasInstanceLayer("VK_LAYER_KHRONOS_validation")) {
@@ -629,10 +261,10 @@ private:
                 if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
                     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
                 } else {
-                    std::cerr << "[RHI][Vulkan] Validation requested but VK_EXT_debug_utils is unavailable.\n";
+                    std::cerr << "[RHI][Vulkan] Validation requested but VK_EXT_debug_utils is unavailable.\\n";
                 }
             } else {
-                std::cerr << "[RHI][Vulkan] Validation requested but VK_LAYER_KHRONOS_validation is unavailable.\n";
+                std::cerr << "[RHI][Vulkan] Validation requested but VK_LAYER_KHRONOS_validation is unavailable.\\n";
             }
         }
 
@@ -654,16 +286,16 @@ private:
 
         const VkResult result = vkCreateInstance(&instanceInfo, nullptr, &instance_);
         if (result != VK_SUCCESS) {
-            std::cerr << "[RHI][Vulkan] vkCreateInstance failed: " << vkResultToString(result) << '\n';
+            std::cerr << "[RHI][Vulkan] vkCreateInstance failed: " << vkResultToString(result) << '\\n';
             return false;
         }
 
         if (validationEnabled_ && !extensions.empty() && !createDebugMessenger()) {
-            std::cerr << "[RHI][Vulkan] Validation layer enabled, but debug messenger setup failed.\n";
+            std::cerr << "[RHI][Vulkan] Validation layer enabled, but debug messenger setup failed.\\n";
         }
 
         if (validationEnabled_) {
-            std::cerr << "[RHI][Vulkan] Validation enabled (TPS_VK_VALIDATION).\n";
+            std::cerr << "[RHI][Vulkan] Validation enabled (TPS_VK_VALIDATION).\\n";
         }
 
         return true;
@@ -741,12 +373,6 @@ private:
                 const bool supportsQueue = (props.queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) != 0U;
                 if (!supportsQueue) continue;
 
-                if (surface_ != VK_NULL_HANDLE) {
-                    VkBool32 presentSupport = VK_FALSE;
-                    vkGetPhysicalDeviceSurfaceSupportKHR(candidate, familyIndex, surface_, &presentSupport);
-                    if (presentSupport == VK_FALSE) continue;
-                }
-
                 VkPhysicalDeviceProperties physicalProps{};
                 vkGetPhysicalDeviceProperties(candidate, &physicalProps);
 
@@ -771,11 +397,11 @@ private:
             queueFamilyIndex_ = fallbackQueueFamilyIndex;
             timestampPeriodNs_ = fallbackTimestampPeriodNs;
             gpuTimestampsSupported_ = false;
-            std::cerr << "[RHI][Vulkan] Selected device queue without timestamp support; GPU pass timings disabled.\n";
+            std::cerr << "[RHI][Vulkan] Selected device queue without timestamp support; GPU pass timings disabled.\\n";
             return true;
         }
 
-        std::cerr << "[RHI][Vulkan] No suitable graphics/compute queue family found.\n";
+        std::cerr << "[RHI][Vulkan] No suitable graphics/compute queue family found.\\n";
         return false;
     }
 
@@ -797,10 +423,7 @@ private:
             if (std::string_view(ext.extensionName) == "VK_EXT_host_query_reset") {
                 hostQueryResetSupported_ = true;
                 deviceExtensions.push_back("VK_EXT_host_query_reset");
-            } else if (std::string_view(ext.extensionName) == VK_KHR_SWAPCHAIN_EXTENSION_NAME) {
-                if (surface_ != VK_NULL_HANDLE) {
-                    deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-                }
+                break;
             }
         }
 
@@ -830,10 +453,10 @@ private:
             if (vkResetQueryPoolEXT_ == nullptr) {
                 hostQueryResetSupported_ = false;
             } else {
-                std::cerr << "[RHI][Vulkan] VK_EXT_host_query_reset is supported and enabled.\n";
+                std::cerr << "[RHI][Vulkan] VK_EXT_host_query_reset is supported and enabled.\\n";
             }
         } else {
-            std::cerr << "[RHI][Vulkan] VK_EXT_host_query_reset not supported. Falling back to vkCmdResetQueryPool.\n";
+            std::cerr << "[RHI][Vulkan] VK_EXT_host_query_reset not supported. Falling back to vkCmdResetQueryPool.\\n";
         }
 
         return true;
@@ -984,14 +607,6 @@ private:
     bool hostQueryResetSupported_ = false;
     bool validationEnabled_ = false;
 
-    SDL_Window* window_ = nullptr;
-    VkSurfaceKHR surface_ = VK_NULL_HANDLE;
-    VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
-    VkFormat swapchainImageFormat_ = VK_FORMAT_UNDEFINED;
-    VkExtent2D swapchainExtent_ = {0, 0};
-    std::vector<VkImage> swapchainImages_;
-    std::vector<VkImageView> swapchainImageViews_;
-
     VkInstance instance_ = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT debugMessenger_ = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
@@ -1010,88 +625,8 @@ private:
     
     std::uint32_t currentFrameSerial_ = 0;
     std::uint32_t currentFrameIndex_ = 0;
-    std::uint32_t currentImageIndex_ = 0;
 };
-#else
-class VulkanRhiDevice final : public IRhiDevice {
-public:
-    bool initialize(void* windowHandle = nullptr) noexcept override {
-        (void)windowHandle;
-        return true;
-    }
+"""
 
-    void shutdown() noexcept override {
-    }
-
-    void beginFrame() noexcept override {
-    }
-
-    void endFrame() noexcept override {
-    }
-
-    const char* backendName() const noexcept override {
-        return "vulkan_stub";
-    }
-
-    bool supportsGpuTimestamps() const noexcept override {
-        return false;
-    }
-
-    void getSwapchainExtent(std::uint32_t& width, std::uint32_t& height) const noexcept override {
-        width = 0;
-        height = 0;
-    }
-
-    std::uint32_t getSwapchainFormat() const noexcept override {
-        return 0;
-    }
-
-    GpuTimestampToken beginTimestampScope(const char* label) noexcept override {
-        (void)label;
-        return GpuTimestampToken{};
-    }
-
-    void endTimestampScope(GpuTimestampToken token) noexcept override {
-        (void)token;
-    }
-
-    bool resolveTimestampScopeMs(GpuTimestampToken token, double& outMs) noexcept override {
-        (void)token;
-        outMs = 0.0;
-        return false;
-    }
-};
-#endif
-
-RhiBackend parseRhiBackend(const char* value) noexcept {
-    if (value == nullptr || value[0] == '\0') {
-        return RhiBackend::VulkanStub;
-    }
-
-    const std::string_view backend(value);
-    if (backend == "null" || backend == "none") {
-        return RhiBackend::Null;
-    }
-
-    if (backend == "v" || backend == "vk" || backend == "vulkan" || backend == "vulkan_stub" || backend == "auto") {
-        return RhiBackend::VulkanStub;
-    }
-
-    return RhiBackend::VulkanStub;
-}
-}  // namespace
-
-std::unique_ptr<IRhiDevice> createRhiDevice(RhiBackend backend) noexcept {
-    switch (backend) {
-        case RhiBackend::VulkanStub:
-            return std::make_unique<VulkanRhiDevice>();
-        case RhiBackend::Null:
-        default:
-            return std::make_unique<NullRhiDevice>();
-    }
-}
-
-std::unique_ptr<IRhiDevice> createRhiDeviceFromEnvironment() noexcept {
-    const char* value = std::getenv("TPS_RHI_BACKEND");
-    return createRhiDevice(parseRhiBackend(value));
-}
+with open('engine/rhi/IRhiDevice.cpp', 'w') as f:
+    f.write(content.replace(vulkan_class_old, vulkan_class_new))

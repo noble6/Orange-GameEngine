@@ -4,8 +4,9 @@
 
 #include "game/player/Player.h"
 
-void Enemy::initialize(const Vec3& spawnPosition) noexcept {
-    health_ = 100;
+void Enemy::initialize(const Vec3& spawnPosition, float speed, int health) noexcept {
+    health_ = health;
+    speed_ = speed;
     position_ = spawnPosition;
     attackCooldownSeconds_ = 0.0f;
 }

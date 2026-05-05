@@ -289,7 +289,12 @@ int main() {
     std::vector<Enemy> enemies;
     enemies.reserve(128);
 
-    std::mt19937 rng(1337U);
+    std::uint32_t seed = 1337U;
+    const char* seedEnv = std::getenv("TPS_RANDOM_SEED");
+    if (seedEnv != nullptr && seedEnv[0] != '\0') {
+        seed = static_cast<std::uint32_t>(std::atoi(seedEnv));
+    }
+    std::mt19937 rng(seed);
     std::uniform_real_distribution<float> edgePick(0.0f, 1.0f);
     std::uniform_real_distribution<float> spawnX(0.0f, static_cast<float>(kWindowWidth));
     std::uniform_real_distribution<float> spawnY(0.0f, static_cast<float>(kWindowHeight));

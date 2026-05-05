@@ -1,5 +1,9 @@
 #include "engine/core/Engine.h"
 
+#if defined(TPS_HAS_SDL2)
+#include <SDL2/SDL.h>
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <iostream>
@@ -8,7 +12,23 @@
 #include "game/Game.h"
 
 bool Engine::initialize() noexcept {
-    renderer_.initialize();
+#if defined(TPS_HAS_SDL2)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == 0) {
+        window_ = SDL_CreateWindow(
+            "TPS Engine",
+            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            1280, 720,
+            SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN
+        );
+        if (window_ == nullptr) {
+            std::cerr << "[Engine] Failed to create SDL window: " << SDL_GetError() << "\n";
+        }
+    } else {
+        std::cerr << "[Engine] Failed to initialize SDL: " << SDL_GetError() << "\n";
+    }
+#endif
+
+    renderer_.initialize(window_);
     inputManager_.initialize();
     physics_.initialize();
     running_ = true;
@@ -35,6 +55,27 @@ void Engine::run(Game& game, std::size_t maxFrames) {
 
         frameDelta = std::clamp(frameDelta, 0.0f, kMaxFrameDelta);
         accumulator += frameDelta;
+
+#if defined(TPS_HAS_SDL2)
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                running_ = false;
+            } else if (e.type == SDL_MOUSEMOTION) {
+                game.onMouseMotion(e.motion.xrel, e.motion.yrel);
+            } else if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_RIGHT) {
+                game.setAimMode(true);
+            } else if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_RIGHT) {
+                game.setAimMode(false);
+            }
+        }
+        
+        static bool mouseModeSet = false;
+        if (!mouseModeSet && window_ != nullptr) {
+            SDL_SetRelativeMouseMode(SDL_TRUE);
+            mouseModeSet = true;
+        }
+#endif
 
         inputManager_.update();
         if (inputManager_.quitRequested()) {
@@ -94,5 +135,14 @@ void Engine::shutdown() noexcept {
     renderer_.cleanup();
     inputManager_.shutdown();
     physics_.cleanup();
+
+#if defined(TPS_HAS_SDL2)
+    if (window_ != nullptr) {
+        SDL_DestroyWindow(window_);
+        window_ = nullptr;
+    }
+    SDL_Quit();
+#endif
+
     running_ = false;
 }

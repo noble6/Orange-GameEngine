@@ -65,7 +65,7 @@ struct FrameDiagnostics {
 
 class Renderer {
 public:
-    void initialize() noexcept;
+    void initialize(void* windowHandle = nullptr) noexcept;
     void beginFrame() noexcept;
 
     void submitPlayer(const Vec3& position,
@@ -76,6 +76,9 @@ public:
                       bool victory,
                       bool defeat) noexcept;
     void submitEnemy(const Vec3& position, std::uint16_t health) noexcept;
+
+    void setCameraMatrices(const Mat4& view, const Mat4& proj) noexcept;
+    void submitCamera(float yaw, float pitch, float armLength, const Vec3& position, bool aimMode) noexcept;
 
     void render() noexcept;
     void present() noexcept;
@@ -119,6 +122,18 @@ private:
     void resolveGpuPassTimes() noexcept;
     void printDiagnosticsOverlay() noexcept;
     void resetDiagnostics() noexcept;
+
+    struct CameraProxy {
+        Mat4 view{};
+        Mat4 proj{};
+        float yaw = 0.0f;
+        float pitch = 0.0f;
+        float armLength = 0.0f;
+        Vec3 position{};
+        bool aimMode = false;
+    };
+
+    CameraProxy camera_{};
 
     RendererConfig config_{};
 

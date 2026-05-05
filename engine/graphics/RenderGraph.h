@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 enum class RenderResourceAccess : unsigned char {
@@ -26,6 +27,7 @@ struct RenderResourceUsage {
     const char* name = "";
     RenderResourceAccess access = RenderResourceAccess::Read;
     RenderResourceState requiredState = RenderResourceState::Undefined;
+    bool persistent = false;
 };
 
 struct RenderPassNodeDesc {
@@ -56,6 +58,8 @@ public:
     const std::vector<CompiledRenderPass>& compiledPasses() const noexcept;
     const std::string& lastError() const noexcept;
 
+    std::string emitDebugGraphviz() const noexcept;
+
 private:
     bool validateDependencies() noexcept;
     bool computeExecutionOrder() noexcept;
@@ -67,5 +71,6 @@ private:
     std::vector<std::vector<std::size_t>> adjacency_;
     std::vector<std::size_t> executionOrder_;
     std::vector<CompiledRenderPass> compiledPasses_;
+    std::unordered_map<std::string, RenderResourceState> persistentResourceStates_;
     std::string lastError_;
 };
